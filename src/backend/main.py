@@ -1,3 +1,4 @@
+from src.backend.gcs_utils import upload_file_to_gcs, get_gcs_file_url
 from fastapi import FastAPI, HTTPException
 from src.backend.database import create_table, get_db_connection
 
@@ -69,3 +70,12 @@ def delete_data(record_id: int):
 
     conn.close()
     return {"message": "Data deleted successfully"}
+
+@app.post("/files/upload")
+def upload_file(bucket_name: str, source_file: str, destination_blob: str):
+    return upload_file_to_gcs(bucket_name, source_file, destination_blob)
+
+
+@app.get("/files/url")
+def get_file_url(bucket_name: str, blob_name: str):
+    return get_gcs_file_url(bucket_name, blob_name)
