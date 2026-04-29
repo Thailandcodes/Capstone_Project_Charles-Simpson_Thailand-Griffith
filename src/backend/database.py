@@ -1,30 +1,25 @@
 import sqlite3
 
-DATABASE_NAME = "climate.db"
+DB_NAME = "climate.db"
 
 
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE_NAME)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_connection():
+    return sqlite3.connect(DB_NAME)
 
 
 def create_table():
-    conn = get_db_connection()
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS climate_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        country TEXT NOT NULL,
-        year INTEGER NOT NULL,
-        temperature REAL NOT NULL
-    )
-    """)
-
-    cursor.execute("""
-    CREATE INDEX IF NOT EXISTS idx_country_year
-    ON climate_data (country, year)
+        CREATE TABLE IF NOT EXISTS climate_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            country TEXT NOT NULL,
+            month TEXT NOT NULL,
+            element TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            value REAL
+        )
     """)
 
     conn.commit()
