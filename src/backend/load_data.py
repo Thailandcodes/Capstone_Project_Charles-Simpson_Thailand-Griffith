@@ -1,19 +1,42 @@
-import pandas as pd
-from src.backend.database import get_db_connection
+import csv
+from src.backend.database import get_connection, create_table
 
 
-def load_csv():
-    df = pd.read_csv("src/backend/climate.csv")
+CSV_FILE = "data/climate.csv"
 
-    conn = get_db_connection()
 
-    df = df[['country', 'year', 'temperature']]  # adjust if needed
+def load_csv_data():
+    create_table()
 
-    df.to_sql("climate_data", conn, if_exists="append", index=False)
+    conn = get_connection()
+    cursor = conn.cursor()
 
+    cursor.execute("DELETE FROM climate_data")
+
+    with open(CSV_FILE, "r", encoding="latin-1") as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            country = row["Area"]
+            month = row["Months"]
+            element = row["Element"]
+
+            for column, value in row.items():
+                if column.startswith("Y") and value:
+                    year = int(column.replace("Y", ""))
+
+                    cursor.execute(
+                        """
+                        INSERT INTO climate_data
+                        (country, month, element, year, value)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (country, month, element, year, float(value))
+                    )
+
+    conn.commit()
     conn.close()
 
 
 if __name__ == "__main__":
-    load_csv()
-    print("Data loaded successfully")
+    load_csv_data()

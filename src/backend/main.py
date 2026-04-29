@@ -1,82 +1,118 @@
-from src.backend.gcs_utils import upload_file_to_gcs, get_gcs_file_url
 from fastapi import FastAPI, HTTPException
-from src.backend.database import create_table, get_db_connection
+from pydantic import BaseModel
+from src.backend.database import get_connection, create_table
 
-app = FastAPI(title="A Dying Planet Climate API")
+app = FastAPI()
 
 create_table()
 
 
+class ClimateData(BaseModel):
+    country: str
+    month: str
+    element: str
+    year: int
+    value: float
+
+
 @app.get("/")
 def home():
-    return {"message": "Climate API running"}
+    return {"message": "Climate Change API is running"}
 
 
 @app.get("/data")
 def get_all_data():
-    conn = get_db_connection()
-    rows = conn.execute("SELECT * FROM climate_data").fetchall()
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, country, month, element, year, value
+        FROM climate_data
+        LIMIT 100
+    """)
+
+    rows = cursor.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+
+    return [
+        {
+            "id": row[0],
+            "country": row[1],
+            "month": row[2],
+            "element": row[3],
+            "year": row[4],
+            "value": row[5],
+        }
+        for row in rows
+    ]
 
 
 @app.get("/data/{country}")
-def get_country_data(country: str):
-    conn = get_db_connection()
-    rows = conn.execute(
-        "SELECT * FROM climate_data WHERE country = ? ORDER BY year",
-        (country,)
-    ).fetchall()
+def get_data_by_country(country: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, country, month, element, year, value
+        FROM climate_data
+        WHERE country = ?
+        LIMIT 100
+    """, (country,))
+
+    rows = cursor.fetchall()
     conn.close()
 
     if not rows:
         raise HTTPException(status_code=404, detail="Country not found")
 
-    return [dict(row) for row in rows]
+    return [
+        {
+            "id": row[0],
+            "country": row[1],
+            "month": row[2],
+            "element": row[3],
+            "year": row[4],
+            "value": row[5],
+        }
+        for row in rows
+    ]
 
 
 @app.post("/data")
-def add_data(country: str, year: int, temperature: float):
-    conn = get_db_connection()
-    conn.execute(
-        """
-        INSERT INTO climate_data (country, year, temperature)
-        VALUES (?, ?, ?)
-        """,
-        (country, year, temperature)
-    )
-    conn.commit()
-    conn.close()
-
-    return {
-        "message": "Data added successfully",
-        "country": country,
-        "year": year,
-        "temperature": temperature
-    }
-
-
-@app.delete("/data/{record_id}")
-def delete_data(record_id: int):
-    conn = get_db_connection()
+def add_data(data: ClimateData):
+    conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM climate_data WHERE id = ?", (record_id,))
+    cursor.execute("""
+        INSERT INTO climate_data
+        (country, month, element, year, value)
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        data.country,
+        data.month,
+        data.element,
+        data.year,
+        data.value
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Data added successfully"}
+
+
+@app.delete("/data/{data_id}")
+def delete_data(data_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM climate_data WHERE id = ?", (data_id,))
     conn.commit()
 
-    if cursor.rowcount == 0:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Record not found")
-
+    deleted = cursor.rowcount
     conn.close()
+
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Data not found")
+
     return {"message": "Data deleted successfully"}
-
-
-@app.post("/files/upload")
-def upload_file(bucket_name: str, source_file: str, destination_blob: str):
-    return upload_file_to_gcs(bucket_name, source_file, destination_blob)
-
-
-@app.get("/files/url")
-def get_file_url(bucket_name: str, blob_name: str):
-    return get_gcs_file_url(bucket_name, blob_name)
