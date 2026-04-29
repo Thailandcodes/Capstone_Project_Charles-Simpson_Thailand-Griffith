@@ -5,4 +5,4 @@ pytest
 httpx
 flake8
 google-cloud-storage
-pandas
+autopep8

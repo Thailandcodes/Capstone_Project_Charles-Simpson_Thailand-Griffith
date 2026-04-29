@@ -1,7 +1,10 @@
 from google.cloud import storage
 
 
-def upload_file_to_gcs(bucket_name: str, source_file: str, destination_blob: str):
+def upload_file_to_gcs(
+        bucket_name: str,
+        source_file: str,
+        destination_blob: str):
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(destination_blob)

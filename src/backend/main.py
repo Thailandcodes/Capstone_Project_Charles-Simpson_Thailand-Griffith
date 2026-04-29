@@ -71,6 +71,7 @@ def delete_data(record_id: int):
     conn.close()
     return {"message": "Data deleted successfully"}
 
+
 @app.post("/files/upload")
 def upload_file(bucket_name: str, source_file: str, destination_blob: str):
     return upload_file_to_gcs(bucket_name, source_file, destination_blob)
