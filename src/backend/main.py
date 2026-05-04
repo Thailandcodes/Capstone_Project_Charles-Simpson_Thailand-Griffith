@@ -1,23 +1,18 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
-from src.backend.database import get_connection, create_table
-import streamlit as st
-import requests
-import pandas as pd
 
-st.subheader("Climate Effects from API")
-
-try:
-    resp = requests.get("https://urban-space-cod-v6jrqwj6g49vfwpx6-8000.app.github.dev/docs#/")
-    resp.raise_for_status()
-    api_df = pd.DataFrame(resp.json())
-    st.dataframe(api_df)
-except requests.RequestException as e:
-    st.error(e)
+from src.backend.database import create_table, get_connection
 
 app = FastAPI()
 
 create_table()
+
+API_KEY = "thailand&charlesdeserveagoodgrade"
+
+
+def verify_api_key(x_api_key: str = Header(None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 class ClimateData(BaseModel):
@@ -34,34 +29,28 @@ def home():
 
 
 @app.get("/data")
-def get_all_data():
+def get_all_data(x_api_key: str = Header(None)):
+    verify_api_key(x_api_key)
+
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT id, country, month, element, year, value
         FROM climate_data
-        LIMIT 100
+        LIMIT 10000
     """)
 
     rows = cursor.fetchall()
     conn.close()
 
-    return [
-        {
-            "id": row[0],
-            "country": row[1],
-            "month": row[2],
-            "element": row[3],
-            "year": row[4],
-            "value": row[5],
-        }
-        for row in rows
-    ]
+    return format_rows(rows)
 
 
 @app.get("/data/{country}")
-def get_data_by_country(country: str):
+def get_data_by_country(country: str, x_api_key: str = Header(None)):
+    verify_api_key(x_api_key)
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -69,7 +58,7 @@ def get_data_by_country(country: str):
         SELECT id, country, month, element, year, value
         FROM climate_data
         WHERE country = ?
-        LIMIT 100
+        LIMIT 10000
     """, (country,))
 
     rows = cursor.fetchall()
@@ -78,21 +67,13 @@ def get_data_by_country(country: str):
     if not rows:
         raise HTTPException(status_code=404, detail="Country not found")
 
-    return [
-        {
-            "id": row[0],
-            "country": row[1],
-            "month": row[2],
-            "element": row[3],
-            "year": row[4],
-            "value": row[5],
-        }
-        for row in rows
-    ]
+    return format_rows(rows)
 
 
 @app.post("/data")
-def add_data(data: ClimateData):
+def add_data(data: ClimateData, x_api_key: str = Header(None)):
+    verify_api_key(x_api_key)
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -105,7 +86,7 @@ def add_data(data: ClimateData):
         data.month,
         data.element,
         data.year,
-        data.value
+        data.value,
     ))
 
     conn.commit()
@@ -115,7 +96,9 @@ def add_data(data: ClimateData):
 
 
 @app.delete("/data/{data_id}")
-def delete_data(data_id: int):
+def delete_data(data_id: int, x_api_key: str = Header(None)):
+    verify_api_key(x_api_key)
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -129,3 +112,17 @@ def delete_data(data_id: int):
         raise HTTPException(status_code=404, detail="Data not found")
 
     return {"message": "Data deleted successfully"}
+
+
+def format_rows(rows):
+    return [
+        {
+            "id": row[0],
+            "country": row[1],
+            "month": row[2],
+            "element": row[3],
+            "year": row[4],
+            "value": row[5],
+        }
+        for row in rows
+    ]

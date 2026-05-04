@@ -2,7 +2,7 @@ import csv
 from src.backend.database import get_connection, create_table
 
 
-CSV_FILE = "data/climate.csv"
+CSV_FILE = "src/backend/climate.csv"
 
 
 def load_csv_data():
